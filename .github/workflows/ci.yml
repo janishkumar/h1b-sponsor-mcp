@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    env:
+      PYTHONPATH: src:.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.9.14"
+          python-version: ${{ matrix.python }}
+          enable-cache: true
+      - run: uv sync --frozen --all-extras
+      - name: Lint
+        run: uv run ruff check src tests
+      - name: Test (synthetic fixtures, no network)
+        run: uv run pytest --cov=h1b_sponsor_mcp --cov-report=term-missing --cov-fail-under=80
+      - name: Wheel installs cleanly without the build extras
+        run: |
+          uv build --wheel
+          uv run --isolated --no-project --with dist/*.whl python -c \
+            "import h1b_sponsor_mcp.server, h1b_sponsor_mcp.queries; print('runtime import ok')"
+      - name: Dependency audit (advisory)
+        if: matrix.python == '3.12'
+        run: |
+          uv export --frozen --no-dev --no-hashes --no-emit-project > requirements.lock.txt
+          uvx pip-audit --progress-spinner off -r requirements.lock.txt \
+            || echo "::warning::pip-audit reported vulnerable dependencies"
+
+  secrets-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

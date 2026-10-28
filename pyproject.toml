@@ -1,0 +1,46 @@
+[project]
+name = "h1b-sponsor-mcp"
+version = "0.1.0"
+description = "MCP server: is this company still sponsoring H-1Bs? Trend tables from DOL LCA, PERM and USCIS employer data."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = [
+    "mcp>=2.0,<3",
+    "duckdb>=1.1",
+    "platformdirs>=4.2",
+]
+
+[project.optional-dependencies]
+build = [
+    "pandas>=2.2",
+    "pyarrow>=17",
+    "python-calamine>=0.2",
+    "rapidfuzz>=3.9",
+    "scikit-learn>=1.5",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.3", "pytest-cov>=5.0", "ruff>=0.6"]
+
+[project.scripts]
+h1b-sponsor-mcp = "h1b_sponsor_mcp.server:main"
+h1b-sponsor-build = "h1b_sponsor_mcp.build.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/h1b_sponsor_mcp"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
