@@ -1,0 +1,22 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.janishkumar/h1b-sponsor-mcp",
+  "title": "H-1B Sponsor",
+  "description": "Is this company still sponsoring H-1Bs and green cards? Trends from DOL and USCIS filings.",
+  "repository": {
+    "url": "https://github.com/janishkumar/h1b-sponsor-mcp",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "h1b-sponsor-mcp",
+      "version": "0.1.0",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

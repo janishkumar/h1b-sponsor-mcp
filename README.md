@@ -42,7 +42,7 @@ Every verdict and flag starts with a signal, so a table reads at a glance: 🟢 
 
 ## Install
 
-You need [uv](https://docs.astral.sh/uv/). The first run downloads the database (about 61 MB compressed) and caches it; after that everything is local and offline.
+You need [uv](https://docs.astral.sh/uv/). The package is on [PyPI](https://pypi.org/project/h1b-sponsor-mcp/). The first run downloads the database (about 61 MB compressed) and caches it; after that everything is local and offline.
 
 **Claude Desktop**: add to `claude_desktop_config.json`:
 
@@ -51,7 +51,7 @@ You need [uv](https://docs.astral.sh/uv/). The first run downloads the database 
   "mcpServers": {
     "h1b-sponsor": {
       "command": "uvx",
-      "args": ["--from", "git+https://github.com/janishkumar/h1b-sponsor-mcp", "h1b-sponsor-mcp"]
+      "args": ["h1b-sponsor-mcp"]
     }
   }
 }
@@ -60,10 +60,12 @@ You need [uv](https://docs.astral.sh/uv/). The first run downloads the database 
 **Claude Code**:
 
 ```bash
-claude mcp add h1b-sponsor -- uvx --from git+https://github.com/janishkumar/h1b-sponsor-mcp h1b-sponsor-mcp
+claude mcp add h1b-sponsor -- uvx h1b-sponsor-mcp
 ```
 
-Any other MCP client works the same way: run `h1b-sponsor-mcp` over stdio.
+Any other MCP client works the same way: run `uvx h1b-sponsor-mcp` over stdio. To run the newest code from GitHub instead of the PyPI release, use `uvx --from git+https://github.com/janishkumar/h1b-sponsor-mcp h1b-sponsor-mcp`.
+
+<!-- mcp-name: io.github.janishkumar/h1b-sponsor-mcp -->
 
 ## Where the numbers come from
 
@@ -159,7 +161,7 @@ flowchart LR
 | **Watcher** (scheduled task) | Twice a month in release months, reads the DOL and USCIS pages in a browser and compares them with the published release. Says exactly which files to download, or that nothing's new. |
 | **`make refresh`** | Moves recognised files from `~/Downloads` into `data/raw/` (archiving anything replaced, and handling DOL's "Dislclosure" filename typo), keeps the latest three fiscal years, rebuilds, runs the gates, prints a before/after diff, and publishes only after you confirm. `make refresh-check` stops after the gates. |
 | **Quality gates** | The data must move forward. Filings in the period both builds cover must change by less than 2% (a bigger drop means a file went missing). Employer count stays plausible, Microsoft, Amazon and Google are all present, nothing has columns that look like contact details, filings resolve to employers, and all six tools answer. |
-| **Weekly health check** ([`data-health.yml`](.github/workflows/data-health.yml)) | Downloads the published release the way users do and runs the same checks, plus a staleness check (fails if the data is more than 200 days old). A failure emails the maintainer. |
+| **Weekly health check** ([`data-health.yml`](https://github.com/janishkumar/h1b-sponsor-mcp/blob/main/.github/workflows/data-health.yml)) | Downloads the published release the way users do and runs the same checks, plus a staleness check (fails if the data is more than 200 days old). A failure emails the maintainer. |
 
 Manual steps, if you'd rather not wait for the watcher:
 
@@ -173,7 +175,9 @@ Manual steps, if you'd rather not wait for the watcher:
 make setup && make test
 ```
 
-57 tests run on a synthetic fixture with one planted example of each case: a company that's slowing, one that's steady, one that's stopped, a payroll-provider tax ID, a duplicate case number, a non-H-1B visa class, and a contact-email column that must not survive the build. They also start the real server over stdio and call it as an MCP client would, and they run the refresh pipeline end to end with the gates both passing and failing. CI runs on Python 3.11–3.13, checks that the wheel installs without the build extras, and runs a dependency audit and secret scan.
+59 tests run on a synthetic fixture with one planted example of each case: a company that's slowing, one that's steady, one that's stopped, a payroll-provider tax ID, a duplicate case number, a non-H-1B visa class, and a contact-email column that must not survive the build. They also start the real server over stdio and call it as an MCP client would, and they run the refresh pipeline end to end with the gates both passing and failing. CI runs on Python 3.11–3.13, checks that the wheel installs without the build extras, and runs a dependency audit and secret scan.
+
+Code and data are released separately. Data releases are GitHub releases tagged `data-YYYY-MM-DD`, and the server downloads the newest one. Code releases are version tags: bump the version in `pyproject.toml` and `server.json`, then push a tag like `v0.1.1`, and [`release.yml`](https://github.com/janishkumar/h1b-sponsor-mcp/blob/main/.github/workflows/release.yml) publishes to PyPI and the [MCP registry](https://registry.modelcontextprotocol.io) through trusted publishing, with no stored tokens.
 
 ## Not legal advice
 

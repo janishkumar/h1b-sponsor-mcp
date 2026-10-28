@@ -1,0 +1,105 @@
+name: Release
+
+# A version tag (v0.1.0) publishes the package to PyPI, then the server to the official
+# MCP registry. Both use GitHub OIDC, so no tokens are stored. Code releases are tags
+# only, never GitHub releases: those are kept for the data (data-* tags).
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.9.14"
+          enable-cache: false
+      - name: Tag, pyproject and server.json agree on the version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          py=$(uv version --short)
+          srv=$(jq -r .version server.json)
+          pkg=$(jq -r '.packages[0].version' server.json)
+          echo "tag=$tag pyproject=$py server.json=$srv/$pkg"
+          [ "$tag" = "$py" ] && [ "$tag" = "$srv" ] && [ "$tag" = "$pkg" ]
+      - run: uv build
+      - name: Smoke test (wheel and sdist install without the build extras)
+        run: |
+          for dist in dist/*.whl dist/*.tar.gz; do
+            uv run --isolated --no-project --with "$dist" python -c \
+              "import h1b_sponsor_mcp.server, h1b_sponsor_mcp.queries; print('ok')"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  pypi:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/project/h1b-sponsor-mcp/
+    permissions:
+      id-token: write
+    steps:
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.9.14"
+          enable-cache: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - run: uv publish
+
+  mcp-registry:
+    needs: pypi
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      MCP_PUBLISHER_VERSION: v1.8.6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - name: Download and verify mcp-publisher
+        run: |
+          set -euo pipefail
+          archive="mcp-publisher_linux_amd64.tar.gz"
+          base="https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}"
+          curl -fsSL -o "$archive" "$base/$archive"
+          curl -fsSL -o "$archive.sigstore.json" "$base/$archive.sigstore.json"
+          cosign verify-blob \
+            --bundle "$archive.sigstore.json" \
+            --certificate-identity "https://github.com/modelcontextprotocol/registry/.github/workflows/release.yml@refs/tags/${MCP_PUBLISHER_VERSION}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            "$archive"
+          tar xzf "$archive" mcp-publisher
+      - name: Wait for PyPI to serve the new version
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          for i in $(seq 1 20); do
+            curl -fsS "https://pypi.org/pypi/h1b-sponsor-mcp/$v/json" >/dev/null && exit 0
+            sleep 15
+          done
+          echo "PyPI never served $v" && exit 1
+      - run: ./mcp-publisher login github-oidc
+      - run: ./mcp-publisher publish

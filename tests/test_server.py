@@ -41,6 +41,18 @@ def test_download_and_offline_fallback(tmp_path, monkeypatch):
         data.locate()
 
 
+def test_data_release_ignores_code_releases():
+    def rel(tag, asset=True, **kw):
+        assets = [{"name": data.ASSET, "browser_download_url": f"https://x/{tag}"}] if asset else []
+        return {"tag_name": tag, "assets": assets, **kw}
+
+    releases = [rel("v0.2.0", asset=False), rel("data-2026-09-30", draft=True),
+                rel("data-2026-03-31"), rel("data-2026-06-30"), rel("data-2026-12-31", asset=False)]
+    assert data.pick_data_release(releases) == ("data-2026-06-30", "https://x/data-2026-06-30")
+    with pytest.raises(data.DataUnavailable):
+        data.pick_data_release([rel("v0.1.0", asset=False)])
+
+
 def test_stdio_server_lists_read_only_tools_and_answers(db_path):
     async def run():
         params = StdioServerParameters(

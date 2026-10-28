@@ -1,4 +1,4 @@
-"""Find the database, or download it from the repo's latest GitHub release.
+"""Find the database, or download it from the repo's newest data release (`data-*` tag).
 
 Order: $H1B_SPONSOR_DB (a local file, e.g. one you built), else the cached copy in the
 user data dir. The cache is refreshed when a newer release exists, checked at most once
@@ -50,11 +50,20 @@ def _download(url: str, dest: Path) -> None:
 
 
 def _latest_release() -> tuple[str, str]:
-    rel = _get_json(f"https://api.github.com/repos/{REPO}/releases/latest")
-    for asset in rel.get("assets", []):
-        if asset["name"] == ASSET:
-            return rel["tag_name"], asset["browser_download_url"]
-    raise DataUnavailable(f"latest release {rel.get('tag_name')} has no {ASSET}")
+    # Not releases/latest: the repo also has code releases (v*), which carry no database.
+    rels = _get_json(f"https://api.github.com/repos/{REPO}/releases?per_page=30")
+    return pick_data_release(rels)
+
+
+def pick_data_release(releases: list[dict]) -> tuple[str, str]:
+    """Newest published `data-*` release that has the database attached."""
+    data_rels = [r for r in releases if r.get("tag_name", "").startswith("data-")
+                 and not r.get("draft") and not r.get("prerelease")]
+    for rel in sorted(data_rels, key=lambda r: r["tag_name"], reverse=True):
+        for asset in rel.get("assets", []):
+            if asset["name"] == ASSET:
+                return rel["tag_name"], asset["browser_download_url"]
+    raise DataUnavailable(f"no data-* release with {ASSET} in github.com/{REPO}")
 
 
 def locate(refresh: bool = True) -> Path:

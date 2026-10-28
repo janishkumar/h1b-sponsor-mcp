@@ -111,7 +111,8 @@ def publish(db: Path, repo: str | None = None) -> str:
         shutil.copyfileobj(src, dst, length=1 << 20)
     cmd = ["gh", "release", "create", tag, str(gz), "--title", f"Data through {through}",
            "--notes", f"DOL LCA and PERM decisions through {through}; USCIS Employer "
-           f"Data Hub through {uscis}. Built {date.today()}."]
+           f"Data Hub through {uscis}. Built {date.today()}.",
+           "--latest"]  # older installs still read releases/latest
     if repo:
         cmd += ["--repo", repo]
     subprocess.run(cmd, check=True)
