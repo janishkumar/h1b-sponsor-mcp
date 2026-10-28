@@ -54,8 +54,8 @@ def test_uscis_reader_handles_tableau_utf16(tmp_path):
     path = tmp_path / "x.csv"
     write_uscis(path)
     df = read_uscis(path)
-    assert len(df) == 2  # the blank-employer row is dropped
-    assert df["new_employment_approved"].sum() == 42
+    assert len(df) == 4  # the blank-employer row is dropped
+    assert df["new_employment_approved"].sum() == 162
     assert set(df["fiscal_year"]) == {2025, 2026}
 
 

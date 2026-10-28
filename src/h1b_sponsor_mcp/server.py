@@ -45,8 +45,9 @@ def company_sponsorship(company: str, role: str | None = None, state: str | None
 
     Shows certified H-1B LCA filings for the last 6 months, the fiscal year so far and the
     last full fiscal year (each vs the same period a year earlier), split into new
-    employment and transfers; green-card (PERM) certifications; and USCIS petition
-    approvals/denials by fiscal year.
+    employment and transfers; green-card (PERM) certifications; USCIS petition
+    approvals/denials by fiscal year; and a denial-rate flag (Normal / Elevated / High)
+    relative to the national rate. Point out a High or Elevated flag to the user.
 
     Args:
         company: Employer name as people say it, e.g. "Microsoft", "Amazon", "JPMorgan".
@@ -61,7 +62,7 @@ def company_sponsorship(company: str, role: str | None = None, state: str | None
 @mcp.tool(annotations=READ_ONLY)
 def compare_companies(companies: list[str], role: str | None = None,
                       state: str | None = None, city: str | None = None) -> str:
-    """Compare several employers side by side: recent filings, trend, green cards, verdict.
+    """Compare employers side by side: filings, trend, green cards, denial-rate flag, verdict.
 
     Args:
         companies: Two or more employer names, e.g. ["Stripe", "Databricks", "Snowflake"].
@@ -75,7 +76,7 @@ def compare_companies(companies: list[str], role: str | None = None,
 @mcp.tool(annotations=READ_ONLY)
 def top_sponsors(role: str | None = None, state: str | None = None, city: str | None = None,
                  months: int = 12, limit: int = 25) -> str:
-    """Rank employers by certified H-1B filings, optionally for a role and place.
+    """Rank employers by certified H-1B filings (with denial-rate flags), for a role and place.
 
     Args:
         role: Optional job filter, e.g. "data scientist", "data engineer".

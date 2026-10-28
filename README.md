@@ -7,22 +7,23 @@
 An MCP server for job seekers who'll need visa sponsorship. It combines all three public sponsorship signals for each employer, shows how they've moved over the last six months against the same months a year earlier, and runs locally on a database that updates each quarter.
 
 ```
-You:     Compare Microsoft, Amazon, Google, Meta, Apple and Nvidia for data scientist sponsorship.
+You:     Compare Microsoft, Amazon, Google, Meta, Apple, Nvidia and TCS for data scientist sponsorship.
 Claude:  (calls compare_companies)
 ```
 
-| Company | LCAs Jan–Jun 2026 | of which new employment | vs a year earlier | PERM certified, last 12 mo | USCIS new-employment approvals FY2025 | Still sponsoring? |
-| --- | ---: | ---: | ---: | ---: | ---: | --- |
-| Microsoft Corporation | 351 | 152 | -15% | 147 | 1,394 | Yes, active |
-| Amazon.com Services LLC | 616 | 334 | +32% | 1 | 4,637 | Yes, active |
-| Google LLC | 240 | 150 | +8% | 0 | 1,042 | Yes, active |
-| Meta Platforms, Inc | 386 | 210 | +2% | 9 | 1,554 | Yes, active |
-| Apple Inc. | 137 | 67 | +69% | 3 | 827 | Yes, active |
-| NVIDIA Corporation | 7 | 0 | +75% | 8 | 560 | Yes, active |
+| Company | LCAs Jan–Jun 2026 | of which new employment | vs a year earlier | PERM certified, last 12 mo | USCIS new-employment approvals FY2025 | USCIS denial rate FY2025–FY2026 to Q3 | Still sponsoring? |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| Microsoft Corporation | 351 | 152 | -15% | 147 | 1,394 | 2.6% | Yes, active |
+| Amazon.com Services LLC | 616 | 334 | +32% | 1 | 4,637 | 1.3% | Yes, active |
+| Google LLC | 240 | 150 | +8% | 0 | 1,042 | 1.2% | Yes, active |
+| Meta Platforms, Inc | 386 | 210 | +2% | 9 | 1,554 | 1.3% | Yes, active |
+| Apple Inc. | 137 | 67 | +69% | 3 | 827 | 1.1% | Yes, active |
+| NVIDIA Corporation | 7 | 0 | +75% | 8 | 560 | 0.7% | Yes, active |
+| TATA CONSULTANCY SERVICES LIMITED | 1 | 0 | — | 0 | 846 | 6.1% Elevated | Occasional |
 
-<sub>Real output, data through Jun 30, 2026. LCA and PERM columns are filtered to data-scientist roles; the USCIS column is company-wide.</sub>
+<sub>Real output, data through Jun 30, 2026. LCA and PERM columns are filtered to data-scientist roles; the USCIS columns are company-wide.</sub>
 
-That one table answers two questions most sponsorship sites can't. Is the company still filing *this year*, and in which direction? And will it take you through to a green card? Amazon and Google are filing plenty of H-1Bs for data scientists, but certified almost no green-card (PERM) cases for them in the last 12 months.
+That one table answers three questions most sponsorship sites can't. Is the company still filing *this year*, and in which direction? And will it take you through to a green card? Amazon and Google are filing plenty of H-1Bs for data scientists, but certified almost no green-card (PERM) cases for them in the last 12 months. And how often does USCIS turn this employer down? TCS's 6.1% denial rate is more than twice the national 2.5%, so it's flagged.
 
 ## What it can answer
 
@@ -73,6 +74,16 @@ Any other MCP client works the same way: run `h1b-sponsor-mcp` over stdio.
 **How current is it?** DOL publishes each quarter about 5–6 weeks after it ends, so the data is between 1.5 and 5 months old at any time. Every H-1B site uses these same files, so none can be fresher. Windows are anchored on the newest decision in the data, not today, so "last 6 months" is always a fully covered window.
 
 **What an LCA is not.** An LCA is a filing an employer makes *before* an H-1B petition. It covers new hires, renewals and transfers, and some never become petitions. Treat LCA counts as an upper bound on sponsorship activity. The USCIS columns are the confirmed side.
+
+**Denial-rate flags.** Each employer's USCIS denial rate over the last full fiscal year plus the current one is compared with the national rate over the same years (2.5% for FY2025–FY2026 Q3):
+
+| Flag | Rule | Where that sits |
+|---|---|---|
+| ⚠ High | 3× national or more (7.6%+) | 5.5% of the 5,159 employers with 20+ decisions |
+| Elevated | 2× national or more (5.1%+) | a further 3.1% |
+| Normal | below 2× | the median employer is 1.6% |
+
+Both flags need at least 20 decisions and 3 denials, so a single denial at a small firm doesn't produce a scary flag. New-employment petitions (the F-1/OPT → H-1B route) get their own rate in `company_sponsorship`. USCIS doesn't publish job titles, so denial rates are company-wide even when you filter by role.
 
 **"Still sponsoring?"** is a rule, not a model. It looks at certified LCAs in the last 6 months against the same months a year earlier:
 
@@ -145,7 +156,7 @@ make release
 make setup && make test
 ```
 
-36 tests run on a synthetic fixture with one planted example of each case: a company that's slowing, one that's steady, one that's stopped, a payroll-provider tax ID, a duplicate case number, a non-H-1B visa class, and a contact-email column that must not survive the build. They also start the real server over stdio and call it as an MCP client would. CI runs on Python 3.11–3.13, checks that the wheel installs without the build extras, and runs a dependency audit and secret scan.
+42 tests run on a synthetic fixture with one planted example of each case: a company that's slowing, one that's steady, one that's stopped, a payroll-provider tax ID, a duplicate case number, a non-H-1B visa class, and a contact-email column that must not survive the build. They also start the real server over stdio and call it as an MCP client would. CI runs on Python 3.11–3.13, checks that the wheel installs without the build extras, and runs a dependency audit and secret scan.
 
 ## Not legal advice
 

@@ -113,6 +113,12 @@ def write_uscis(path) -> None:
          "30", "2", "10", "0", "0", "0", "0", "0", "5", "1", "0", "0"],
         ["3", "2026", "ACME CLOUD INC", "1111", "54 - Professional", "ATLANTA", "GA", "30301",
          "12", "0", "4", "0", "0", "0", "0", "0", "3", "0", "0", "0"],
+        # Low denials: 2 of 202.
+        ["4", "2025", "STEADY CORP", "3333", "54 - Professional", "AUSTIN", "TX", "78701",
+         "100", "1", "100", "1", "0", "0", "0", "0", "0", "0", "0", "0"],
+        # High denials: 6 of 26, far above the fixture's national rate.
+        ["5", "2025", "GONE LLC", "4444", "54 - Professional", "ATLANTA", "GA", "30301",
+         "20", "6", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"],
     ]
     text = "\n".join("\t".join(r) for r in [USCIS_HEADER, *rows]) + "\n"
     path.write_bytes(text.encode("utf-16"))
