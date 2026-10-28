@@ -1,0 +1,41 @@
+name: Data health
+
+# Weekly check of what users actually download: the latest data release.
+# Fails (and GitHub emails the maintainer) if the release is missing, broken, missing
+# big employers, leaks contact details, or is older than a refresh should allow.
+on:
+  schedule:
+    - cron: "0 13 * * 1"   # Mondays 13:00 UTC
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  check-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: src
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.9.14"
+          enable-cache: true
+      - name: Install the runtime only (what users get)
+        run: uv sync --frozen --no-dev
+      - name: Download the latest release and check it
+        run: uv run --no-sync python -m h1b_sponsor_mcp.health | tee health.txt
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Data release health"
+            echo '```'
+            cat health.txt 2>/dev/null || echo "no output"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

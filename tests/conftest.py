@@ -124,18 +124,26 @@ def write_uscis(path) -> None:
     path.write_bytes(text.encode("utf-16"))
 
 
-@pytest.fixture(scope="session")
-def db_path(tmp_path_factory):
-    tmp = tmp_path_factory.mktemp("db")
-    uscis_file = tmp / "employer_information.csv"
+def build_fixture_db(out, extra_lca: list[dict] | None = None, drop_case_prefix: str = ""):
+    """Write a fixture database. extra_lca adds rows; drop_case_prefix removes some."""
+    uscis_file = out.parent / f"{out.stem}_uscis.csv"
     write_uscis(uscis_file)
-    out = tmp / "sponsors.duckdb"
+    frames = make_lca()
+    if extra_lca:
+        frames.append(pd.DataFrame(extra_lca))
+    if drop_case_prefix:
+        frames = [f[~f["CASE_NUMBER"].str.startswith(drop_case_prefix)] for f in frames]
     write_database(
-        standardise_lca(make_lca()), standardise_perm(make_perm()), read_uscis(uscis_file),
+        standardise_lca(frames), standardise_perm(make_perm()), read_uscis(uscis_file),
         out, BuildInputs(lca_files=[], perm_files=[], uscis_file=uscis_file,
                          uscis_through="FY2026 Q3"),
     )
     return out
+
+
+@pytest.fixture(scope="session")
+def db_path(tmp_path_factory):
+    return build_fixture_db(tmp_path_factory.mktemp("db") / "sponsors.duckdb")
 
 
 @pytest.fixture

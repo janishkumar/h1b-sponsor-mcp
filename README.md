@@ -120,7 +120,7 @@ flowchart LR
 - **Tax IDs alone over-merge.** The first build merged everything that ever shared a tax ID, and "Amazon" came back with TechCorp Solutions Inc. in it: a small firm whose 21 filings list one of Amazon's tax IDs, almost certainly a keying error. A name now joins a tax ID's cluster only if its first word matches the main filer's. A regression test covers it.
 - **"Last 6 months" was off by a day.** Subtracting six months from June 30 lands on December 30, so the first window read "Dec 2025–Jun 2026". Windows are now whole calendar months (Jan–Jun 2026 vs Jan–Jun 2025), with tests for month-end and mid-month anchors.
 - **Prefix search catches neighbours.** "Apple" also matches Apple Tree Dental. Fuzzy brand matching would hide that rather than fix it, so every answer lists the entities it counted, and `find_employer` gives you the exact name to narrow it.
-- **The government sites block scripts.** The plan was a scheduled GitHub Action that refreshed the data every quarter. DOL and USCIS both return 403 to automated downloads, so the refresh is a short manual browser step and everything after it is one command.
+- **The government sites block scripts.** The plan was a scheduled GitHub Action that refreshed the data every quarter. DOL and USCIS both return 403 to automated downloads, and DOL's official data API (45 datasets) doesn't carry LCA or PERM. So the download stays a two-minute browser step, and everything around it is automated: a watcher that says when and what to download, a gated `make refresh`, and a weekly health check of the published release.
 
 ## Compared with other H-1B MCP servers
 
@@ -135,22 +135,37 @@ I checked what already existed before building this. As of October 2026:
 | Employer names merged via tax ID | ✅ | — | — | — |
 | Runs locally and offline | ✅ | downloads raw files on demand | scrapes a third-party site | hosted |
 
-## Keeping the data fresh (maintainers)
+## Keeping the data fresh
 
-DOL and USCIS block scripted downloads, so a refresh is a few minutes in a browser each quarter, usually mid-February, May, August and November:
+DOL publishes a new quarter about six weeks after it ends. DOL and USCIS refuse scripted downloads, and DOL's data API doesn't include these datasets, so one step stays human: about two minutes in a browser each quarter. Everything else is automated:
 
-1. From the [DOL performance data page](https://www.dol.gov/agencies/eta/foreign-labor/performance), download the newest `LCA_Disclosure_Data_FY…` and `PERM_Disclosure_Data_FY…` files into `data/raw/dol/`. Current-year files are cumulative, so replace the previous quarter's file.
-2. From the [USCIS H-1B Employer Data Hub](https://www.uscis.gov/tools/reports-and-studies/h-1b-employer-data-hub), use Crosstab View → Download → CSV into `data/raw/uscis/`.
-3. Then:
-
-```bash
-make setup
-make data USCIS_THROUGH="FY2026 Q4"
-make inspect
-make release
+```mermaid
+flowchart LR
+    W[Watcher<br/>1st and 15th of release months] -->|new data found| N[Notification with<br/>exact files to get]
+    N --> H[You: download 2-3 files<br/>into ~/Downloads]
+    H --> R[make refresh]
+    R --> C[collect, retire old years]
+    C --> B[rebuild]
+    B --> G{quality gates}
+    G -->|fail| X[stop, nothing published]
+    G -->|pass| D[before/after diff, confirm]
+    D --> P[GitHub release]
+    P --> U[users' servers update within a day]
+    P --> HC[weekly health check in CI]
 ```
 
-`make release` publishes `sponsors.duckdb.gz` as a GitHub release, and every user's server picks it up within a day.
+| Piece | What it does |
+|---|---|
+| **Watcher** (scheduled task) | Twice a month in release months, reads the DOL and USCIS pages in a browser and compares them with the published release. Says exactly which files to download, or that nothing's new. |
+| **`make refresh`** | Moves recognised files from `~/Downloads` into `data/raw/` (archiving anything replaced, and handling DOL's "Dislclosure" filename typo), keeps the latest three fiscal years, rebuilds, runs the gates, prints a before/after diff, and publishes only after you confirm. `make refresh-check` stops after the gates. |
+| **Quality gates** | The data must move forward. Filings in the period both builds cover must change by less than 2% (a bigger drop means a file went missing). Employer count stays plausible, Microsoft, Amazon and Google are all present, nothing has columns that look like contact details, filings resolve to employers, and all six tools answer. |
+| **Weekly health check** ([`data-health.yml`](.github/workflows/data-health.yml)) | Downloads the published release the way users do and runs the same checks, plus a staleness check (fails if the data is more than 200 days old). A failure emails the maintainer. |
+
+Manual steps, if you'd rather not wait for the watcher:
+
+1. From the [DOL performance data page](https://www.dol.gov/agencies/eta/foreign-labor/performance), download the newest `LCA_Disclosure_Data_FY…` and `PERM_Disclosure_Data_FY…` files.
+2. From the [USCIS H-1B Employer Data Hub](https://www.uscis.gov/tools/reports-and-studies/h-1b-employer-data-hub), use Crosstab View → the last four fiscal years → Download → CSV.
+3. Run `make refresh` and enter the USCIS quarter when asked (e.g. `FY2026 Q4`).
 
 ## Development
 
@@ -158,7 +173,7 @@ make release
 make setup && make test
 ```
 
-43 tests run on a synthetic fixture with one planted example of each case: a company that's slowing, one that's steady, one that's stopped, a payroll-provider tax ID, a duplicate case number, a non-H-1B visa class, and a contact-email column that must not survive the build. They also start the real server over stdio and call it as an MCP client would. CI runs on Python 3.11–3.13, checks that the wheel installs without the build extras, and runs a dependency audit and secret scan.
+57 tests run on a synthetic fixture with one planted example of each case: a company that's slowing, one that's steady, one that's stopped, a payroll-provider tax ID, a duplicate case number, a non-H-1B visa class, and a contact-email column that must not survive the build. They also start the real server over stdio and call it as an MCP client would, and they run the refresh pipeline end to end with the gates both passing and failing. CI runs on Python 3.11–3.13, checks that the wheel installs without the build extras, and runs a dependency audit and secret scan.
 
 ## Not legal advice
 
