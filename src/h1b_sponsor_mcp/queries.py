@@ -41,6 +41,16 @@ USCIS_DENIED = USCIS_APPROVED.replace("_approved", "_denied")
 # Denial-rate flags, relative to the national rate over the same fiscal years.
 # Calibrated on FY2025-26: national 2.5%, employer median 1.6% (20+ decisions). These
 # rules flag 5.5% of those employers High and a further 3.1% Elevated.
+# Signals (kanban): every verdict and flag leads with one of these so a table reads
+# at a glance. The word after it carries the same meaning for anyone without emoji.
+GREEN, AMBER, RED, GREY = "🟢", "🟡", "🔴", "⚪"
+DENIAL_HIGH = f"{RED} High"
+DENIAL_ELEVATED = f"{AMBER} Elevated"
+DENIAL_NORMAL = f"{GREEN} Normal"
+DENIAL_FEW = f"{GREY} Too few to judge"
+SIGNAL_LEGEND = (f"Signals: {GREEN} good · {AMBER} caution · {RED} warning · "
+                 f"{GREY} not enough data.")
+
 HIGH_MULTIPLE = 3.0
 ELEVATED_MULTIPLE = 2.0
 MIN_DECISIONS = 20
@@ -152,12 +162,12 @@ class Store:
     def _level(rate: float | None, decisions: int, denials: int, national: float | None,
                min_decisions: int = MIN_DECISIONS) -> str:
         if rate is None or decisions < min_decisions or not national:
-            return "Too few decisions to judge"
+            return DENIAL_FEW
         if denials >= MIN_DENIALS and rate >= HIGH_MULTIPLE * national:
-            return "⚠ High"
+            return DENIAL_HIGH
         if denials >= MIN_DENIALS and rate >= ELEVATED_MULTIPLE * national:
-            return "Elevated"
-        return "Normal"
+            return DENIAL_ELEVATED
+        return DENIAL_NORMAL
 
     def denial(self, ids: list[str]) -> dict | None:
         if not self.has_uscis or not self.denial_fys:
@@ -180,9 +190,10 @@ class Store:
         if not d or d["rate"] is None:
             return "—"
         level = d["level"]
-        if level == "Too few decisions to judge":
-            return f"{d['rate']:.1%} (few cases)"
-        return f"{d['rate']:.1%}" + ("" if level == "Normal" else f" {level}")
+        if level == DENIAL_FEW:
+            return f"{GREY} {d['rate']:.1%} (few cases)"
+        icon, word = level.split(" ", 1)
+        return f"{icon} {d['rate']:.1%}" + ("" if level == DENIAL_NORMAL else f" {word}")
 
     def denial_line(self, ids: list[str]) -> str | None:
         d = self.denial(ids)
@@ -293,12 +304,13 @@ class Store:
         if now == 0:
             any_12 = self._lca_counts(ids, months_back(self.anchor, 12), self.anchor,
                                       role, state, city)["lcas"]
-            return "No filings in last 6 months" if any_12 else "No recent sponsorship"
+            return (f"{RED} No filings in last 6 months" if any_12
+                    else f"{RED} No recent sponsorship")
         if before and before >= 10 and now <= 0.5 * before:
-            return f"Slowing sharply ({(now - before) / before:+.0%})"
+            return f"{AMBER} Slowing sharply ({(now - before) / before:+.0%})"
         if now < 5:
-            return "Occasional"
-        return "Yes, active"
+            return f"{AMBER} Occasional"
+        return f"{GREEN} Yes, active"
 
     # tools ---------------------------------------------------------------------------
     def company_sponsorship(self, company: str, role=None, state=None, city=None) -> str:
@@ -364,7 +376,7 @@ class Store:
             out += ["", "**Employer entities counted** (certified LCAs, all roles, last 12 months)",
                     "",
                     table(["Entity", "LCAs"], [[n, fmt_int(c)] for n, c in ents])]
-        out += ["", self.footnote(role_filtered=bool(role or state or city))]
+        out += ["", SIGNAL_LEGEND, self.footnote(role_filtered=bool(role or state or city))]
         return "\n".join(out)
 
     def compare_companies(self, companies: list[str], role=None, state=None, city=None) -> str:
@@ -508,12 +520,13 @@ class Store:
         if not self.has_uscis or not self.national["rate"]:
             return ""
         n = self.national["rate"]
-        return (f"Denial flags compare each employer's USCIS H-1B denial rate "
-                f"({self.denial_label()}, all petition types) with the national "
-                f"{n:.1%}: **⚠ High** = {HIGH_MULTIPLE:.0f}x national or more "
-                f"({HIGH_MULTIPLE * n:.1%}+), **Elevated** = {ELEVATED_MULTIPLE:.0f}x "
-                f"({ELEVATED_MULTIPLE * n:.1%}+); both need {MIN_DECISIONS}+ decisions and "
-                f"{MIN_DENIALS}+ denials. Denials are company-wide, not role-specific.")
+        return (f"{SIGNAL_LEGEND} Denial flags compare each employer's USCIS H-1B denial "
+                f"rate ({self.denial_label()}, all petition types) with the national "
+                f"{n:.1%}: **{DENIAL_HIGH}** = {HIGH_MULTIPLE:.0f}x national or more "
+                f"({HIGH_MULTIPLE * n:.1%}+), **{DENIAL_ELEVATED}** = "
+                f"{ELEVATED_MULTIPLE:.0f}x ({ELEVATED_MULTIPLE * n:.1%}+); both need "
+                f"{MIN_DECISIONS}+ decisions and {MIN_DENIALS}+ denials. Denials are "
+                "company-wide, not role-specific.")
 
     def footnote(self, role_filtered: bool = False, include_lca_note: bool = True) -> str:
         parts = [f"_Data through {self.anchor:%b %d, %Y} (DOL decision dates)."]

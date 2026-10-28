@@ -13,13 +13,13 @@ Claude:  (calls compare_companies)
 
 | Company | LCAs Jan–Jun 2026 | of which new employment | vs a year earlier | PERM certified, last 12 mo | USCIS new-employment approvals FY2025 | USCIS denial rate FY2025–FY2026 to Q3 | Still sponsoring? |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| Microsoft Corporation | 351 | 152 | -15% | 147 | 1,394 | 2.6% | Yes, active |
-| Amazon.com Services LLC | 616 | 334 | +32% | 1 | 4,637 | 1.3% | Yes, active |
-| Google LLC | 240 | 150 | +8% | 0 | 1,042 | 1.2% | Yes, active |
-| Meta Platforms, Inc | 386 | 210 | +2% | 9 | 1,554 | 1.3% | Yes, active |
-| Apple Inc. | 137 | 67 | +69% | 3 | 827 | 1.1% | Yes, active |
-| NVIDIA Corporation | 7 | 0 | +75% | 8 | 560 | 0.7% | Yes, active |
-| TATA CONSULTANCY SERVICES LIMITED | 1 | 0 | — | 0 | 846 | 6.1% Elevated | Occasional |
+| Microsoft Corporation | 351 | 152 | -15% | 147 | 1,394 | 🟢 2.6% | 🟢 Yes, active |
+| Amazon.com Services LLC | 616 | 334 | +32% | 1 | 4,637 | 🟢 1.3% | 🟢 Yes, active |
+| Google LLC | 240 | 150 | +8% | 0 | 1,042 | 🟢 1.2% | 🟢 Yes, active |
+| Meta Platforms, Inc | 386 | 210 | +2% | 9 | 1,554 | 🟢 1.3% | 🟢 Yes, active |
+| Apple Inc. | 137 | 67 | +69% | 3 | 827 | 🟢 1.1% | 🟢 Yes, active |
+| NVIDIA Corporation | 7 | 0 | +75% | 8 | 560 | 🟢 0.7% | 🟢 Yes, active |
+| TATA CONSULTANCY SERVICES LIMITED | 1 | 0 | — | 0 | 846 | 🟡 6.1% Elevated | 🟡 Occasional |
 
 <sub>Real output, data through Jun 30, 2026. LCA and PERM columns are filtered to data-scientist roles; the USCIS columns are company-wide.</sub>
 
@@ -37,6 +37,8 @@ That one table answers three questions most sponsorship sites can't. Is the comp
 | `data_info` | "What data is this based on, and how current is it?" |
 
 Every answer is a markdown table that names its date window ("Jan–Jun 2026", never just "last 6 months") and says what the numbers do and don't mean.
+
+Every verdict and flag starts with a signal, so a table reads at a glance: 🟢 good · 🟡 caution · 🔴 warning · ⚪ not enough data. The word after the signal says the same thing, for anyone reading without emoji.
 
 ## Install
 
@@ -79,9 +81,9 @@ Any other MCP client works the same way: run `h1b-sponsor-mcp` over stdio.
 
 | Flag | Rule | Where that sits |
 |---|---|---|
-| ⚠ High | 3× national or more (7.6%+) | 5.5% of the 5,159 employers with 20+ decisions |
-| Elevated | 2× national or more (5.1%+) | a further 3.1% |
-| Normal | below 2× | the median employer is 1.6% |
+| 🔴 High | 3× national or more (7.6%+) | 5.5% of the 5,159 employers with 20+ decisions |
+| 🟡 Elevated | 2× national or more (5.1%+) | a further 3.1% |
+| 🟢 Normal | below 2× | the median employer is 1.6% |
 
 Both flags need at least 20 decisions and 3 denials, so a single denial at a small firm doesn't produce a scary flag. New-employment petitions (the F-1/OPT → H-1B route) get their own rate in `company_sponsorship`. USCIS doesn't publish job titles, so denial rates are company-wide even when you filter by role.
 
@@ -89,11 +91,11 @@ Both flags need at least 20 decisions and 3 denials, so a single denial at a sma
 
 | Verdict | Rule |
 |---|---|
-| Yes, active | 5+ filings, and not down by half or more |
-| Slowing sharply (−x%) | at least 10 filings a year earlier, and down 50% or more |
-| Occasional | 1–4 filings |
-| No filings in last 6 months | none in 6 months, some in the last 12 |
-| No recent sponsorship | none in 12 months |
+| 🟢 Yes, active | 5+ filings, and not down by half or more |
+| 🟡 Slowing sharply (−x%) | at least 10 filings a year earlier, and down 50% or more |
+| 🟡 Occasional | 1–4 filings |
+| 🔴 No filings in last 6 months | none in 6 months, some in the last 12 |
+| 🔴 No recent sponsorship | none in 12 months |
 
 ## How it's built
 
@@ -156,7 +158,7 @@ make release
 make setup && make test
 ```
 
-42 tests run on a synthetic fixture with one planted example of each case: a company that's slowing, one that's steady, one that's stopped, a payroll-provider tax ID, a duplicate case number, a non-H-1B visa class, and a contact-email column that must not survive the build. They also start the real server over stdio and call it as an MCP client would. CI runs on Python 3.11–3.13, checks that the wheel installs without the build extras, and runs a dependency audit and secret scan.
+43 tests run on a synthetic fixture with one planted example of each case: a company that's slowing, one that's steady, one that's stopped, a payroll-provider tax ID, a duplicate case number, a non-H-1B visa class, and a contact-email column that must not survive the build. They also start the real server over stdio and call it as an MCP client would. CI runs on Python 3.11–3.13, checks that the wheel installs without the build extras, and runs a dependency audit and secret scan.
 
 ## Not legal advice
 

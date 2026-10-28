@@ -40,9 +40,9 @@ def test_matching_merges_spellings_and_lists_prefix_neighbours(store):
 
 
 @pytest.mark.parametrize("company,expected", [
-    ("Acme Cloud", "Slowing sharply (-60%)"),
-    ("Steady Corp", "Yes, active"),
-    ("Gone LLC", "No recent sponsorship"),
+    ("Acme Cloud", "🟡 Slowing sharply (-60%)"),
+    ("Steady Corp", "🟢 Yes, active"),
+    ("Gone LLC", "🔴 No recent sponsorship"),
 ])
 def test_verdicts(store, company, expected):
     assert store.verdict(store.match_employers(company)) == expected
@@ -71,16 +71,16 @@ def test_denial_flags_relative_to_national(store):
     # Fixture national rate: 11 denials of 295 decisions = 3.7%.
     assert store.national["rate"] == pytest.approx(11 / 295)
     gone = store.denial(store.match_employers("Gone LLC"))
-    assert gone["level"] == "⚠ High" and gone["rate"] == pytest.approx(6 / 26)
-    assert store.denial(store.match_employers("Steady Corp"))["level"] == "Normal"
-    assert store.denial(store.match_employers("Acme Cloud"))["level"] == "Normal"
+    assert gone["level"] == "🔴 High" and gone["rate"] == pytest.approx(6 / 26)
+    assert store.denial(store.match_employers("Steady Corp"))["level"] == "🟢 Normal"
+    assert store.denial(store.match_employers("Acme Cloud"))["level"] == "🟢 Normal"
 
 
 @pytest.mark.parametrize("rate,decisions,denials,expected", [
-    (0.50, 10, 5, "Too few decisions to judge"),   # under 20 decisions
-    (0.10, 20, 2, "Normal"),                       # high rate but only 2 denials
-    (0.08, 100, 8, "Elevated"),                    # 2x national of 0.035
-    (0.11, 100, 11, "⚠ High"),                     # 3x national
+    (0.50, 10, 5, "⚪ Too few to judge"),   # under 20 decisions
+    (0.10, 20, 2, "🟢 Normal"),                       # high rate but only 2 denials
+    (0.08, 100, 8, "🟡 Elevated"),                    # 2x national of 0.035
+    (0.11, 100, 11, "🔴 High"),                     # 3x national
 ])
 def test_denial_level_thresholds(rate, decisions, denials, expected):
     from h1b_sponsor_mcp.queries import Store
@@ -89,9 +89,15 @@ def test_denial_level_thresholds(rate, decisions, denials, expected):
 
 def test_denial_flag_shows_in_every_table(store):
     assert "**USCIS denial rate, FY2025–FY2026 to Q3:**" in store.company_sponsorship("Gone LLC")
-    assert "23.1% ⚠ High" in store.compare_companies(["Gone LLC", "Steady Corp"])
+    assert "🔴 23.1% High" in store.compare_companies(["Gone LLC", "Steady Corp"])
     top = store.top_sponsors(state="TX")
     assert "| 1 | Steady Corp |" in top and "Denial flags compare" in top
+
+
+def test_every_answer_carries_the_signal_legend(store):
+    for md in (store.company_sponsorship("Acme Cloud"), store.compare_companies(["Acme Cloud"]),
+               store.top_sponsors()):
+        assert "🟢 good · 🟡 caution · 🔴 warning" in md
 
 
 def test_unknown_company_is_handled(store):
@@ -101,7 +107,7 @@ def test_unknown_company_is_handled(store):
 def test_compare_companies(store):
     md = store.compare_companies(["Acme Cloud", "Steady Corp", "Nobody Here"])
     assert "| Steady Corp | 10 | 0 | +0% |" in md
-    assert "1.0% | Yes, active |" in md
+    assert "🟢 1.0% | 🟢 Yes, active |" in md
     assert "| Nobody Here | not found |" in md
 
 

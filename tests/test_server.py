@@ -58,4 +58,4 @@ def test_stdio_server_lists_read_only_tools_and_answers(db_path):
         "company_sponsorship", "compare_companies", "top_sponsors", "salary_range",
         "find_employer", "data_info"}
     assert all(t.annotations and t.annotations.read_only_hint for t in tools)
-    assert "Still sponsoring?** Yes, active" in text
+    assert "Still sponsoring?** 🟢 Yes, active" in text
